@@ -28,6 +28,11 @@
 extern "C" {
 #endif
 
+struct obs_service_resolution {
+	int cx;
+	int cy;
+};
+
 struct obs_service_info {
 	/* required */
 	const char *id;
@@ -63,7 +68,7 @@ struct obs_service_info {
 	const char *(*get_username)(void *data);
 	const char *(*get_password)(void *data);
 
-	bool (*supports_multitrack)(void *data);
+	bool (*deprecated_1)();
 
 	void (*apply_encoder_settings)(void *data,
 				       obs_data_t *video_encoder_settings,
@@ -74,7 +79,13 @@ struct obs_service_info {
 
 	const char *(*get_output_type)(void *data);
 
-	/* TODO: more stuff later */
+	void (*get_supported_resolutions)(
+		void *data, struct obs_service_resolution **resolutions,
+		size_t *count);
+	void (*get_max_fps)(void *data, int *fps);
+
+	void (*get_max_bitrate)(void *data, int *video_bitrate,
+				int *audio_bitrate);
 };
 
 EXPORT void obs_register_service_s(const struct obs_service_info *info,

@@ -1,5 +1,5 @@
 {
-    "format_version": 2,
+    "format_version": 3,
     "services": [
         {
             "name": "Twitch",
@@ -193,13 +193,37 @@
             "recommended": {
                 "keyint": 2,
                 "max video bitrate": 6000,
-                "max audio bitrate": 160,
+                "max audio bitrate": 320,
                 "x264opts": "scenecut=0"
             }
         },
         {
-            "name": "YouTube / YouTube Gaming",
+            "name": "YouTube - HLS",
+            "common": false,
+            "more_info_link": "https://developers.google.com/youtube/v3/live/guides/ingestion-protocol-comparison",
+            "servers": [
+                {
+                    "name": "Primary YouTube ingest server",
+                    "url": "https://a.upload.youtube.com/http_upload_hls?cid={stream_key}&copy=0&file=out.m3u8"
+                },
+                {
+                    "name": "Backup YouTube ingest server",
+                    "url": "https://b.upload.youtube.com/http_upload_hls?cid={stream_key}&copy=1&file=out.m3u8"
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "output": "ffmpeg_hls_muxer",
+                "max video bitrate": 51000,
+                "max audio bitrate": 160
+            }
+        },
+        {
+            "name": "YouTube - RTMP",
             "common": true,
+            "alt_names": [
+                "YouTube / YouTube Gaming"
+            ],
             "servers": [
                 {
                     "name": "Primary YouTube ingest server",
@@ -208,6 +232,25 @@
                 {
                     "name": "Backup YouTube ingest server",
                     "url": "rtmp://b.rtmp.youtube.com/live2?backup=1"
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "max video bitrate": 51000,
+                "max audio bitrate": 160
+            }
+        },
+        {
+            "name": "YouTube - RTMPS (Beta)",
+            "common": true,
+            "servers": [
+                {
+                    "name": "Primary YouTube ingest server",
+                    "url": "rtmps://a.rtmps.youtube.com:443/live2"
+                },
+                {
+                    "name": "Backup YouTube ingest server",
+                    "url": "rtmps://b.rtmps.youtube.com:443/live2"
                 }
             ],
             "recommended": {
@@ -342,12 +385,12 @@
             "name": "Vaughn Live / iNSTAGIB",
             "servers": [
                 {
-                    "name": "US: Primary",
-                    "url": "rtmp://live.vaughnsoft.net/live"
-                },
-                {
                     "name": "US: Chicago, IL",
                     "url": "rtmp://live-ord.vaughnsoft.net/live"
+                },
+                {
+                    "name": "US: Vint Hill, VA",
+                    "url": "rtmp://live-iad.vaughnsoft.net/live"
                 },
                 {
                     "name": "US: Denver, CO",
@@ -356,28 +399,40 @@
                 {
                     "name": "US: New York, NY",
                     "url": "rtmp://live-nyc.vaughnsoft.net/live"
+                },		    
+                {
+                    "name": "US: Miami, FL",
+                    "url": "rtmp://live-mia.vaughnsoft.net/live"
+                },
+                {
+                    "name": "US: Seattle, WA",
+                    "url": "rtmp://live-sea.vaughnsoft.net/live"
                 },
                 {
                     "name": "EU: Amsterdam, NL",
                     "url": "rtmp://live-ams.vaughnsoft.net/live"
+                },
+                {
+                    "name": "EU: London, UK",
+                    "url": "rtmp://live-lhr.vaughnsoft.net/live"
                 }
             ],
             "recommended": {
                 "keyint": 2,
-                "max video bitrate": 3500,
-                "max audio bitrate": 160
+                "max video bitrate": 15000,
+                "max audio bitrate": 320
             }
         },
         {
             "name": "Breakers.TV",
             "servers": [
                 {
-                    "name": "US: Primary",
-                    "url": "rtmp://live.vaughnsoft.net/live"
-                },
-                {
                     "name": "US: Chicago, IL",
                     "url": "rtmp://live-ord.vaughnsoft.net/live"
+                },
+                {
+                    "name": "US: Vint Hill, VA",
+                    "url": "rtmp://live-iad.vaughnsoft.net/live"
                 },
                 {
                     "name": "US: Denver, CO",
@@ -386,16 +441,28 @@
                 {
                     "name": "US: New York, NY",
                     "url": "rtmp://live-nyc.vaughnsoft.net/live"
+                },		    
+                {
+                    "name": "US: Miami, FL",
+                    "url": "rtmp://live-mia.vaughnsoft.net/live"
+                },
+                {
+                    "name": "US: Seattle, WA",
+                    "url": "rtmp://live-sea.vaughnsoft.net/live"
                 },
                 {
                     "name": "EU: Amsterdam, NL",
                     "url": "rtmp://live-ams.vaughnsoft.net/live"
+                },
+                {
+                    "name": "EU: London, UK",
+                    "url": "rtmp://live-lhr.vaughnsoft.net/live"
                 }
             ],
             "recommended": {
                 "keyint": 2,
-                "max video bitrate": 3500,
-                "max audio bitrate": 160
+                "max video bitrate": 15000,
+                "max audio bitrate": 320
             }
         },
         {
@@ -410,6 +477,12 @@
             "recommended": {
                 "keyint": 2,
                 "profile": "main",
+                "supported resolutions": [
+                    "1280x720",
+                    "852x480",
+                    "480x360"
+                ],
+                "max fps": 30,
                 "max video bitrate": 6000,
                 "max audio bitrate": 128
             }
@@ -734,6 +807,10 @@
                 {
                     "name": "North America : US West",
                     "url": "rtmp://rtmp-wsu.afreecatv.com/app"
+                },
+                {
+                    "name": "Europe : UK",
+                    "url": "rtmp://rtmp-uk.afreecatv.com/app"
                 },
                 {
                     "name": "Asia : Singapore",
@@ -1381,52 +1458,8 @@
             "common": false,
             "servers": [
                 {
-                    "name": "Chicago, US",
-                    "url": "rtmp://ingest-any-ord1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Seattle, US",
-                    "url": "rtmp://ingest-any-sea1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Los Angeles, US",
-                    "url": "rtmp://ingest-any-lax1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Washington DC, US",
-                    "url": "rtmp://ingest-any-iad1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Frankfurt, DE",
-                    "url": "rtmp://ingest-any-fra1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "London, UK",
-                    "url": "rtmp://ingest-any-lhr1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Stockholm, SE",
-                    "url": "rtmp://ingest-any-sto1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Tokyo, JP",
-                    "url": "rtmp://ingest-any-tyo1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Hong Kong, HK",
-                    "url": "rtmp://ingest-any-hkg1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Singapore, SG",
-                    "url": "rtmp://ingest-any-sgp1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "Sydney, AU",
-                    "url": "rtmp://ingest-any-syd1.broadcast.steamcontent.com/app"
-                },
-                {
-                    "name": "São Paulo, BR",
-                    "url": "rtmp://ingest-any-gru1.broadcast.steamcontent.com/app"
+                    "name": "Default",
+                    "url": "rtmp://ingest-rtmp.broadcast.steamcontent.com/app"
                 }
             ],
             "recommended": {
@@ -1703,32 +1736,6 @@
             }
         },
         {
-            "name": "weabook.live",
-            "servers": [
-                {
-                    "name": "N.Virgina, US",
-                    "url": "rtmp://us-api.weabook.live/live"
-                },
-                {
-                    "name": "Singapore, SG",
-                    "url": "rtmp://sg-api.weabook.live/live"
-                },
-                {
-                    "name": "Tokyo, JP",
-                    "url": "rtmp://jp-api.weabook.live/live"
-                },
-                {
-                    "name": "Premium Streaming",
-                    "url": "rtmp://premium.rtmp.weabook.live/live"
-                }
-            ],
-            "recommended": {
-                "keyint": 2,
-                "max audio bitrate": 256,
-                "max video bitrate": 20480
-            }
-        },
-        {
             "name": "Taryana - Apachat | تاریانا - آپاچت",
             "servers": [
                 {
@@ -1755,6 +1762,54 @@
                 "keyint": 2,
                 "max video bitrate": 20000,
                 "max audio bitrate": 192
+            }
+        },
+        {
+            "name": "SHOWROOM",
+            "servers": [
+                {
+                    "name": "Default",
+                    "url": "https://www.showroom-live.com/api/obs/streaming_info?obs_key="
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "profile": "main",
+                "max video bitrate": 1500,
+                "max audio bitrate": 160,
+                "x264opts": "tune=zerolatency"
+            }
+	},
+        {
+            "name": "Mux",
+            "servers": [
+                {
+                    "name": "Global (RTMPS)",
+                    "url": "rtmps://global-live.mux.com:443/app"
+                },
+                {
+                    "name": "Global (RTMP)",
+                    "url": "rtmp://global-live.mux.com:5222/app"
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "max video bitrate": 5000,
+                "max audio bitrate": 160
+            }
+        },
+        {
+            "name": "Viloud",
+            "servers": [
+                {
+                    "name": "Default",
+                    "url": "rtmp://live.viloud.tv:5222/app"
+                }
+            ],
+            "recommended": {
+                "keyint": 2,
+                "max video bitrate": 5000,
+                "max audio bitrate": 160
             }
         }
     ]

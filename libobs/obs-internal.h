@@ -36,6 +36,8 @@
 
 #include "obs.h"
 
+#include <caption/caption.h>
+
 #define NUM_TEXTURES 2
 #define NUM_CHANNELS 3
 #define MICROSECOND_DEN 1000000
@@ -92,6 +94,8 @@ struct obs_module {
 	void (*unload)(void);
 	void (*post_load)(void);
 	void (*set_locale)(const char *locale);
+	bool (*get_string)(const char *lookup_string,
+			   const char **translated_string);
 	void (*free_locale)(void);
 	uint32_t (*ver)(void);
 	void (*set_pointer)(obs_module_t *module);
@@ -585,6 +589,11 @@ struct audio_cb_info {
 	void *param;
 };
 
+struct caption_cb_info {
+	obs_source_caption_t callback;
+	void *param;
+};
+
 struct obs_source {
 	struct obs_context_data context;
 	struct obs_source_info info;
@@ -599,7 +608,7 @@ struct obs_source {
 	bool owns_info_id;
 
 	/* signals to call the source update in the video thread */
-	bool defer_update;
+	long defer_update_count;
 
 	/* ensures show/hide are only called once */
 	volatile long show_refs;
@@ -687,6 +696,9 @@ struct obs_source {
 	uint32_t async_cache_height;
 	uint32_t async_convert_width[MAX_AV_PLANES];
 	uint32_t async_convert_height[MAX_AV_PLANES];
+
+	pthread_mutex_t caption_cb_mutex;
+	DARRAY(struct caption_cb_info) caption_cb_list;
 
 	/* async video deinterlacing */
 	uint64_t deinterlace_offset;
@@ -974,6 +986,8 @@ struct obs_output {
 	double caption_timestamp;
 	struct caption_text *caption_head;
 	struct caption_text *caption_tail;
+
+	struct circlebuf caption_data;
 
 	bool valid;
 

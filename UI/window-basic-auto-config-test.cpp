@@ -250,9 +250,10 @@ void AutoConfigTestPage::TestBandwidthThread()
 		GetServers(servers);
 
 	/* just use the first server if it only has one alternate server,
-	 * or if using Restream due to their "auto" servers */
+	 * or if using Restream or Nimo TV due to their "auto" servers */
 	if (servers.size() < 3 ||
-	    wiz->serviceName.substr(0, 11) == "Restream.io") {
+	    wiz->serviceName.substr(0, 11) == "Restream.io" ||
+	    wiz->serviceName == "Nimo TV") {
 		servers.resize(1);
 
 	} else if (wiz->service == AutoConfig::Service::Twitch &&
@@ -457,8 +458,8 @@ void AutoConfigTestPage::TestBandwidthThread()
 		}
 	}
 
-	wiz->server = bestServer;
-	wiz->serverName = bestServerName;
+	wiz->server = std::move(bestServer);
+	wiz->serverName = std::move(bestServerName);
 	wiz->idealBitrate = bestBitrate;
 
 	QMetaObject::invokeMethod(this, "NextStage");
@@ -962,6 +963,27 @@ void AutoConfigTestPage::TestRecordingEncoderThread()
 #define QUALITY_SAME "Basic.Settings.Output.Simple.RecordingQuality.Stream"
 #define QUALITY_HIGH "Basic.Settings.Output.Simple.RecordingQuality.Small"
 
+void set_closest_res(int &cx, int &cy, struct obs_service_resolution *res_list,
+		     size_t count)
+{
+	int best_pixel_diff = 0x7FFFFFFF;
+	int start_cx = cx;
+	int start_cy = cy;
+
+	for (size_t i = 0; i < count; i++) {
+		struct obs_service_resolution &res = res_list[i];
+		int pixel_cx_diff = abs(start_cx - res.cx);
+		int pixel_cy_diff = abs(start_cy - res.cy);
+		int pixel_diff = pixel_cx_diff + pixel_cy_diff;
+
+		if (pixel_diff < best_pixel_diff) {
+			best_pixel_diff = pixel_diff;
+			cx = res.cx;
+			cy = res.cy;
+		}
+	}
+}
+
 void AutoConfigTestPage::FinalizeResults()
 {
 	ui->stackedWidget->setCurrentIndex(1);
@@ -1011,6 +1033,27 @@ void AutoConfigTestPage::FinalizeResults()
 		obs_service_update(service, service_settings);
 		obs_service_apply_encoder_settings(service, vencoder_settings,
 						   nullptr);
+
+		struct obs_service_resolution *res_list;
+		size_t res_count;
+		int maxFPS;
+		obs_service_get_supported_resolutions(service, &res_list,
+						      &res_count);
+		obs_service_get_max_fps(service, &maxFPS);
+
+		if (res_list) {
+			set_closest_res(wiz->idealResolutionCX,
+					wiz->idealResolutionCY, res_list,
+					res_count);
+		}
+		if (maxFPS) {
+			double idealFPS = (double)wiz->idealFPSNum /
+					  (double)wiz->idealFPSDen;
+			if (idealFPS > (double)maxFPS) {
+				wiz->idealFPSNum = maxFPS;
+				wiz->idealFPSDen = 1;
+			}
+		}
 
 		wiz->idealBitrate =
 			(int)obs_data_get_int(vencoder_settings, "bitrate");

@@ -426,17 +426,25 @@ static bool init_encoder(struct nvenc_data *enc, obs_data_t *settings)
 	config->gopLength = gop_size;
 	config->frameIntervalP = 1 + bf;
 	h264_config->idrPeriod = gop_size;
+
+	bool repeat_headers = obs_data_get_bool(settings, "repeat_headers");
+	if (repeat_headers) {
+		h264_config->repeatSPSPPS = 1;
+		h264_config->disableSPSPPS = 0;
+		h264_config->outputAUD = 1;
+	}
+
 	vui_params->videoSignalTypePresentFlag = 1;
 	vui_params->videoFullRangeFlag = (voi->range == VIDEO_RANGE_FULL);
 	vui_params->colourDescriptionPresentFlag = 1;
 
 	switch (voi->colorspace) {
-	case VIDEO_CS_DEFAULT:
 	case VIDEO_CS_601:
 		vui_params->colourPrimaries = 6;
 		vui_params->transferCharacteristics = 6;
 		vui_params->colourMatrix = 6;
 		break;
+	case VIDEO_CS_DEFAULT:
 	case VIDEO_CS_709:
 		vui_params->colourPrimaries = 1;
 		vui_params->transferCharacteristics = 1;

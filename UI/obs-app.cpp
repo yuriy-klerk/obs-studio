@@ -35,10 +35,12 @@
 #include <QProxyStyle>
 #include <QScreen>
 #include <QProcess>
+#include <QAccessible>
 
 #include "qt-wrappers.hpp"
 #include "obs-app.hpp"
 #include "log-viewer.hpp"
+#include "slider-ignorewheel.hpp"
 #include "window-basic-main.hpp"
 #include "window-basic-settings.hpp"
 #include "crash-report.hpp"
@@ -85,9 +87,6 @@ string opt_starting_collection;
 string opt_starting_profile;
 string opt_starting_scene;
 
-bool remuxAfterRecord = false;
-string remuxFilename;
-
 bool restart = false;
 
 QPointer<OBSLogViewer> obsLogViewer;
@@ -117,7 +116,7 @@ QObject *CreateShortcutFilter()
 			case Qt::MouseButtonMask:
 				return false;
 
-			case Qt::MidButton:
+			case Qt::MiddleButton:
 				hotkey.key = OBS_KEY_MOUSE3;
 				break;
 
@@ -193,6 +192,9 @@ QObject *CreateShortcutFilter()
 				hotkey.key = obs_key_from_virtual_key(
 					event->nativeVirtualKey());
 			}
+
+			if (event->isAutoRepeat())
+				return true;
 
 			hotkey.modifiers = TranslateQtKeyboardEventModifiers(
 				event->modifiers());
@@ -446,6 +448,8 @@ bool OBSApp::InitGlobalConfigDefaults()
 				true);
 	config_set_default_bool(globalConfig, "BasicWindow", "ShowSourceIcons",
 				true);
+	config_set_default_bool(globalConfig, "BasicWindow",
+				"ShowContextToolbars", true);
 	config_set_default_bool(globalConfig, "BasicWindow", "StudioModeLabels",
 				true);
 
@@ -483,6 +487,10 @@ bool OBSApp::InitGlobalConfigDefaults()
 	config_set_default_bool(globalConfig, "Video", "ResetOSXVSyncOnExit",
 				true);
 #endif
+
+	config_set_default_bool(globalConfig, "BasicWindow",
+				"MediaControlsCountdownTimer", true);
+
 	return true;
 }
 
@@ -1121,7 +1129,12 @@ OBSApp::OBSApp(int &argc, char **argv, profiler_name_store_t *store)
 {
 	sleepInhibitor = os_inhibit_sleep_create("OBS Video/audio");
 
+#ifdef __APPLE__
+	setWindowIcon(
+		QIcon::fromTheme("obs", QIcon(":/res/images/obs_256x256.png")));
+#else
 	setWindowIcon(QIcon::fromTheme("obs", QIcon(":/res/images/obs.png")));
+#endif
 }
 
 OBSApp::~OBSApp()
@@ -1253,6 +1266,8 @@ void OBSApp::AppInit()
 				  Str("Untitled"));
 	config_set_default_string(globalConfig, "Basic", "SceneCollectionFile",
 				  Str("Untitled"));
+	config_set_default_bool(globalConfig, "Basic", "ConfigOnNewProfile",
+				true);
 
 	if (!config_has_user_value(globalConfig, "Basic", "Profile")) {
 		config_set_string(globalConfig, "Basic", "Profile",
@@ -1429,6 +1444,8 @@ string OBSApp::GetVersionString() const
 	ver << "windows)";
 #elif __APPLE__
 	ver << "mac)";
+#elif __OpenBSD__
+	ver << "openbsd)";
 #elif __FreeBSD__
 	ver << "freebsd)";
 #else /* assume linux for the time being */
@@ -1655,18 +1672,8 @@ string GenerateTimeDateFilename(const char *extension, bool noSpace)
 string GenerateSpecifiedFilename(const char *extension, bool noSpace,
 				 const char *format)
 {
-	OBSBasic *main = reinterpret_cast<OBSBasic *>(App()->GetMainWindow());
-	bool autoRemux = config_get_bool(main->Config(), "Video", "AutoRemux");
-
-	if ((strcmp(extension, "mp4") == 0) && autoRemux)
-		extension = "mkv";
-
 	BPtr<char> filename =
 		os_generate_formatted_filename(extension, !noSpace, format);
-
-	remuxFilename = string(filename);
-	remuxAfterRecord = autoRemux;
-
 	return string(filename);
 }
 
@@ -1896,6 +1903,17 @@ static auto ProfilerFree = [](void *) {
 	profiler_free();
 };
 
+QAccessibleInterface *accessibleFactory(const QString &classname,
+					QObject *object)
+{
+	if (classname == QLatin1String("VolumeSlider") && object &&
+	    object->isWidgetType())
+		return new VolumeAccessibleInterface(
+			static_cast<QWidget *>(object));
+
+	return nullptr;
+}
+
 static const char *run_program_init = "run_program_init";
 static int run_program(fstream &logFile, int argc, char *argv[])
 {
@@ -1914,6 +1932,10 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
 	QGuiApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+	QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+		Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
+#endif
 
 #if !defined(_WIN32) && !defined(__APPLE__) && BROWSER_AVAILABLE
 	setenv("QT_NO_GLIB", "1", true);
@@ -1927,6 +1949,8 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 
 	OBSApp program(argc, argv, profilerNameStore.get());
 	try {
+		QAccessible::installFactory(accessibleFactory);
+
 		bool created_log = false;
 
 		program.AppInit();
@@ -1935,13 +1959,21 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 		OBSTranslator translator;
 		program.installTranslator(&translator);
 
-#ifdef _WIN32
 		/* --------------------------------------- */
 		/* check and warn if already running       */
 
 		bool cancel_launch = false;
 		bool already_running = false;
+
+#if defined(_WIN32)
 		RunOnceMutex rom = GetRunOnceMutex(already_running);
+#elif defined(__APPLE__)
+		CheckAppWithSameBundleID(already_running);
+#elif defined(__linux__)
+		RunningInstanceCheck(already_running);
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+		PIDFileCheck(already_running);
+#endif
 
 		if (!already_running) {
 			goto run;
@@ -1985,6 +2017,21 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 
 		/* --------------------------------------- */
 	run:
+
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__FreeBSD__)
+		// Mounted by termina during chromeOS linux container startup
+		// https://chromium.googlesource.com/chromiumos/overlays/board-overlays/+/master/project-termina/chromeos-base/termina-lxd-scripts/files/lxd_setup.sh
+		os_dir_t *crosDir = os_opendir("/opt/google/cros-containers");
+		if (crosDir) {
+			QMessageBox::StandardButtons buttons(QMessageBox::Ok);
+			QMessageBox mb(QMessageBox::Critical,
+				       QTStr("ChromeOS.Title"),
+				       QTStr("ChromeOS.Text"), buttons,
+				       nullptr);
+
+			mb.exec();
+			return 0;
+		}
 #endif
 
 		if (!created_log) {

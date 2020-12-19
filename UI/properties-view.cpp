@@ -329,8 +329,7 @@ void OBSPropertiesView::AddInt(obs_property_t *prop, QFormLayout *layout,
 	int val = (int)obs_data_get_int(settings, name);
 	QSpinBox *spin = new SpinBoxIgnoreScroll();
 
-	if (!obs_property_enabled(prop))
-		spin->setEnabled(false);
+	spin->setEnabled(obs_property_enabled(prop));
 
 	int minVal = obs_property_int_min(prop);
 	int maxVal = obs_property_int_max(prop);
@@ -354,6 +353,7 @@ void OBSPropertiesView::AddInt(obs_property_t *prop, QFormLayout *layout,
 		slider->setPageStep(stepVal);
 		slider->setValue(val);
 		slider->setOrientation(Qt::Horizontal);
+		slider->setEnabled(obs_property_enabled(prop));
 		subLayout->addWidget(slider);
 
 		connect(slider, SIGNAL(valueChanged(int)), spin,
@@ -684,7 +684,7 @@ void OBSPropertiesView::AddColor(obs_property_t *prop, QFormLayout *layout,
 	layout->addRow(label, subLayout);
 }
 
-static void MakeQFont(obs_data_t *font_obj, QFont &font, bool limit = false)
+void MakeQFont(obs_data_t *font_obj, QFont &font, bool limit = false)
 {
 	const char *face = obs_data_get_string(font_obj, "face");
 	const char *style = obs_data_get_string(font_obj, "style");

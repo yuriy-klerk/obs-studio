@@ -11,8 +11,13 @@ if (NOT "${FFMPEG_AVCODEC_LIBRARIES}" STREQUAL "")
 	list(REMOVE_ITEM FFMPEG_LIBRARIES ${FFMPEG_AVCODEC_LIBRARIES})
 endif()
 
+if(DEBUG_FFMPEG_MUX)
+	add_definitions(-DSHOW_SUBPROCESSES)
+endif()
+
 if(UNIX)
 	if (NOT APPLE)
+		find_package(X11 REQUIRED)
 		find_package(X11_XCB REQUIRED)
 		find_package(XCB OPTIONAL_COMPONENTS XINPUT)
 		if (XCB_XINPUT_FOUND)
@@ -138,7 +143,6 @@ elseif(APPLE)
 
 	set_source_files_properties(${libobs_PLATFORM_SOURCES}
 		PROPERTIES
-			LANGUAGE C
 			COMPILE_FLAGS "-fobjc-arc")
 
 	find_library(COCOA Cocoa)
@@ -221,11 +225,13 @@ elseif(UNIX)
 	endif()
 
 	include_directories(
+		${X11_X11_INCLUDE_PATH}
 		${X11_XCB_INCLUDE_DIRS})
 	add_definitions(
 		${X11_XCB_DEFINITIONS})
 	set(libobs_PLATFORM_DEPS
 		${libobs_PLATFORM_DEPS}
+		${X11_X11_LIB}
 		${X11_XCB_LIBRARIES})
 
 	if(USE_XINPUT)
@@ -358,7 +364,8 @@ set(libobs_util_SOURCES
 	util/crc32.c
 	util/text-lookup.c
 	util/cf-parser.c
-	util/profiler.c)
+	util/profiler.c
+	util/bitstream.c)
 set(libobs_util_HEADERS
 	util/curl/curl-helper.h
 	util/sse-intrin.h
@@ -385,7 +392,8 @@ set(libobs_util_HEADERS
 	util/lexer.h
 	util/platform.h
 	util/profiler.h
-	util/profiler.hpp)
+	util/profiler.hpp
+	util/bitstream.h)
 
 set(libobs_libobs_SOURCES
 	${libobs_PLATFORM_SOURCES}
@@ -464,12 +472,10 @@ source_group("util\\Header Files" FILES ${libobs_util_HEADERS})
 source_group("audio-monitoring\\Source Files" FILES ${libobs_audio_monitoring_SOURCES})
 source_group("audio-monitoring\\Header Files" FILES ${libobs_audio_monitoring_HEADERS})
 
-if(BUILD_CAPTIONS)
-	include_directories(${CMAKE_SOURCE_DIR}/deps/libcaption)
-	set(libobs_PLATFORM_DEPS
-		${libobs_PLATFORM_DEPS}
-		caption)
-endif()
+include_directories(${CMAKE_SOURCE_DIR}/deps/libcaption)
+set(libobs_PLATFORM_DEPS
+	${libobs_PLATFORM_DEPS}
+	caption)
 
 add_library(libobs SHARED ${libobs_SOURCES} ${libobs_HEADERS})
 if(UNIX AND NOT APPLE)
